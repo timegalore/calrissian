@@ -31,7 +31,9 @@ PLACEMENT_ANGLE_BIN_WEIGHT = 1.0
 PLACEMENT_GAP_WEIGHT = 1.4
 CLOUD_OUTLINE_PATH = Path(__file__).resolve().parent / "assets" / "cloud_outline.png"
 CLOUD_OUTLINE_STROKE_THRESHOLD = 128
-CLOUD_OUTLINE_ANTIALIAS_MAX = 220
+CLOUD_OUTLINE_STROKE_DILATE = max(round(1 * RENDER_SCALE), 2)
+CLOUD_OUTLINE_MORPH_CLOSE = max(round(1 * RENDER_SCALE), 1)
+CLOUD_OUTLINE_ANTIALIAS_MAX = 140
 
 
 @dataclass(frozen=True)
@@ -217,7 +219,7 @@ def _load_font(font_path: str | None, size: float) -> ImageFont.FreeTypeFont | I
 
 def _shape_mask(shape: str) -> np.ndarray:
     if shape == "cloud":
-        return _cloud_interior_mask(_cloud_outline_array())
+        return _cloud_shape_arrays()[0]
 
     mask = Image.new("L", (CANVAS_WIDTH, CANVAS_HEIGHT), 0)
     draw = ImageDraw.Draw(mask)
@@ -234,7 +236,7 @@ def _draw_shape(draw: ImageDraw.ImageDraw, shape: str) -> None:
 
 def _draw_shape_border(image: Image.Image, shape: str) -> None:
     if shape == "cloud":
-        _draw_cloud_outline_image(image, _cloud_outline_array())
+        _draw_cloud_outline_image(image, _cloud_shape_arrays()[1])
         return
 
     border = _outline_mask(_shape_mask(shape), SHAPE_BORDER_WIDTH)
@@ -244,38 +246,41 @@ def _draw_shape_border(image: Image.Image, shape: str) -> None:
 
 
 @lru_cache(maxsize=1)
-def _cloud_outline_array() -> np.ndarray:
+def _cloud_shape_arrays() -> tuple[np.ndarray, np.ndarray]:
     if not CLOUD_OUTLINE_PATH.exists():
         raise FileNotFoundError(f"Cloud outline image not found: {CLOUD_OUTLINE_PATH}")
 
     outline = Image.open(CLOUD_OUTLINE_PATH).convert("RGBA")
     background = Image.new("RGBA", outline.size, (255, 255, 255, 255))
-    source = np.array(Image.alpha_composite(background, outline).convert("L"))
-    binary = np.where(source < CLOUD_OUTLINE_STROKE_THRESHOLD, 0, 255).astype(np.uint8)
-    binary_image = Image.fromarray(binary, mode="L")
+    source = Image.alpha_composite(background, outline).convert("L")
 
     scale = min(
-        (CANVAS_WIDTH - 2 * MARGIN) / binary_image.width,
-        (CANVAS_HEIGHT - 2 * MARGIN) / binary_image.height,
+        (CANVAS_WIDTH - 2 * MARGIN) / source.width,
+        (CANVAS_HEIGHT - 2 * MARGIN) / source.height,
     )
-    resized = binary_image.resize(
-        (max(1, int(binary_image.width * scale)), max(1, int(binary_image.height * scale))),
-        Image.Resampling.LANCZOS,
+    target_width = max(1, int(source.width * scale))
+    target_height = max(1, int(source.height * scale))
+
+    resized = source.resize((target_width, target_height), Image.Resampling.LANCZOS)
+    resized_array = np.array(resized)
+    stroke = resized_array < CLOUD_OUTLINE_STROKE_THRESHOLD
+    barrier = _close_bool(
+        _dilate_bool(stroke, CLOUD_OUTLINE_STROKE_DILATE),
+        CLOUD_OUTLINE_MORPH_CLOSE,
     )
-    canvas = Image.new("L", (CANVAS_WIDTH, CANVAS_HEIGHT), 255)
-    offset_x = (CANVAS_WIDTH - resized.width) // 2
-    offset_y = (CANVAS_HEIGHT - resized.height) // 2
-    canvas.paste(resized, (offset_x, offset_y))
-    return np.array(canvas)
+    interior = _interior_from_barrier(barrier)
+
+    outline_canvas = np.full((CANVAS_HEIGHT, CANVAS_WIDTH), 255, dtype=np.uint8)
+    interior_canvas = np.zeros((CANVAS_HEIGHT, CANVAS_WIDTH), dtype=bool)
+    offset_x = (CANVAS_WIDTH - target_width) // 2
+    offset_y = (CANVAS_HEIGHT - target_height) // 2
+    outline_canvas[offset_y : offset_y + target_height, offset_x : offset_x + target_width] = resized_array
+    interior_canvas[offset_y : offset_y + target_height, offset_x : offset_x + target_width] = interior
+    return interior_canvas, outline_canvas
 
 
-def _cloud_stroke_mask(outline: np.ndarray) -> np.ndarray:
-    return outline < CLOUD_OUTLINE_STROKE_THRESHOLD
-
-
-def _cloud_interior_mask(outline: np.ndarray) -> np.ndarray:
-    barrier = _dilate_bool(_cloud_stroke_mask(outline), 2)
-    height, width = outline.shape
+def _interior_from_barrier(barrier: np.ndarray) -> np.ndarray:
+    height, width = barrier.shape
     exterior = np.zeros((height, width), dtype=bool)
     queue: deque[tuple[int, int]] = deque()
 
@@ -325,7 +330,7 @@ def _cloud_outline_alpha(outline: np.ndarray) -> np.ndarray:
     alpha = np.zeros_like(tone)
     stroke_region = tone < CLOUD_OUTLINE_ANTIALIAS_MAX
     alpha[stroke_region] = (CLOUD_OUTLINE_ANTIALIAS_MAX - tone[stroke_region]) / CLOUD_OUTLINE_ANTIALIAS_MAX
-    return np.clip(alpha, 0.0, 1.0)
+    return np.clip(alpha ** 1.5, 0.0, 1.0)
 
 
 def _dilate_bool(mask: np.ndarray, radius: int) -> np.ndarray:
@@ -339,6 +344,25 @@ def _dilate_bool(mask: np.ndarray, radius: int) -> np.ndarray:
                 grown |= _shift_mask(expanded, dy, dx)
         expanded = grown
     return expanded
+
+
+def _erode_bool(mask: np.ndarray, radius: int) -> np.ndarray:
+    eroded = mask.copy()
+    for _ in range(radius):
+        shrunk = eroded.copy()
+        for dy in (-1, 0, 1):
+            for dx in (-1, 0, 1):
+                if dy == 0 and dx == 0:
+                    continue
+                shrunk &= _shift_mask(eroded, dy, dx)
+        eroded = shrunk
+    return eroded
+
+
+def _close_bool(mask: np.ndarray, radius: int) -> np.ndarray:
+    if radius <= 0:
+        return mask
+    return _erode_bool(_dilate_bool(mask, radius), radius)
 
 
 def _outline_mask(mask: np.ndarray, thickness: int) -> np.ndarray:
