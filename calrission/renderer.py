@@ -35,7 +35,7 @@ CLOUD_OUTLINE_PATH = Path(__file__).resolve().parent / "assets" / "cloud_outline
 CLOUD_OUTLINE_STROKE_THRESHOLD = 128
 CLOUD_OUTLINE_STROKE_DILATE = max(round(1 * RENDER_SCALE), 2)
 CLOUD_OUTLINE_MORPH_CLOSE = max(round(1 * RENDER_SCALE), 1)
-CLOUD_PLACEMENT_INSET = max(round(2 * RENDER_SCALE), 3)
+CLOUD_PLACEMENT_INSET = max(round(8 * RENDER_SCALE), 10)
 
 FONT_SEARCH_DIRS = (
     Path("C:/Windows/Fonts"),
@@ -682,7 +682,7 @@ def _bbox_inside_mask(
         return False
 
     region = mask[y1:y2, x1:x2]
-    return region.size > 0 and region.mean() > 0.92
+    return region.size > 0 and region.all()
 
 
 def _bbox_overlaps(
