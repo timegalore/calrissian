@@ -20,8 +20,8 @@ def generate_wordcloud(
     max_angle: float,
 ) -> Path:
     content = extract_pdf_content(pdf_path, palette_size=min(maxwords, 12))
-    counts = count_words(content.text)
-    words = top_words(counts, maxwords)
+    counts, display_forms = count_words(content.text)
+    words = top_words(counts, maxwords, display_forms)
 
     options = RenderOptions(
         shape=shape,

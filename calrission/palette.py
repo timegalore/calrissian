@@ -10,7 +10,7 @@ def assign_colours(
     if word_count <= 0:
         return []
     if not palette:
-        palette = [(30, 90, 160)]
+        palette = [(0, 122, 255)]
 
     if word_count <= len(palette):
         return palette[:word_count]

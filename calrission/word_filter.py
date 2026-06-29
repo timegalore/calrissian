@@ -222,6 +222,27 @@ def normalize_word(word: str) -> str:
     return word.lower().strip("'").replace("'", "")
 
 
+def is_acronym(word: str) -> bool:
+    stripped = word.strip("'").replace("'", "")
+    return len(stripped) >= 2 and stripped.isalpha() and stripped.isupper()
+
+
+def display_form(word: str) -> str:
+    stripped = word.strip("'").replace("'", "")
+    if is_acronym(stripped):
+        return stripped
+    return stripped.lower()
+
+
+def merge_display_form(current: str, word: str) -> str:
+    candidate = display_form(word)
+    if is_acronym(current):
+        return current
+    if is_acronym(candidate):
+        return candidate
+    return candidate
+
+
 def is_globally_common(word: str) -> bool:
     """True for open-class words that are too frequent in general English."""
     normalized = normalize_word(word)
