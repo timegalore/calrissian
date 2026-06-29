@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 import random
+import struct
+import sys
 from collections import deque
 from dataclasses import dataclass
 from functools import lru_cache
@@ -34,6 +36,14 @@ CLOUD_OUTLINE_STROKE_THRESHOLD = 128
 CLOUD_OUTLINE_STROKE_DILATE = max(round(1 * RENDER_SCALE), 2)
 CLOUD_OUTLINE_MORPH_CLOSE = max(round(1 * RENDER_SCALE), 1)
 CLOUD_PLACEMENT_INSET = max(round(2 * RENDER_SCALE), 3)
+
+FONT_SEARCH_DIRS = (
+    Path("C:/Windows/Fonts"),
+    Path("/usr/share/fonts/truetype"),
+    Path("/System/Library/Fonts/Supplemental"),
+    Path("/Library/Fonts"),
+)
+FONT_EXTENSIONS = frozenset({".ttf", ".ttc", ".otf"})
 
 
 @dataclass(frozen=True)
@@ -74,6 +84,8 @@ def render_wordcloud(
     max_count = max(counts)
 
     font_path = _resolve_font(options.font_name)
+    if font_path is None:
+        raise ValueError(f"Font not found: {options.font_name!r}")
     placed: list[PlacedWord] = []
     placed_centers: list[tuple[float, float]] = []
     angle_bin_counts = [0] * PLACEMENT_ANGLE_BINS
@@ -183,38 +195,152 @@ def _random_angle(max_angle: float) -> float:
     return magnitude if random.choice((True, False)) else -magnitude
 
 
-def _resolve_font(font_name: str) -> str | None:
-    candidates = [
-        f"{font_name}.ttf",
-        f"{font_name.lower()}.ttf",
-        f"{font_name}.ttc",
-        f"{font_name.lower()}.ttc",
-    ]
-    search_dirs = [
-        Path("C:/Windows/Fonts"),
-        Path("/usr/share/fonts/truetype"),
-        Path("/System/Library/Fonts/Supplemental"),
-        Path("/Library/Fonts"),
-    ]
+def _normalize_font_name(name: str) -> str:
+    return " ".join(name.strip().lower().split())
 
-    for directory in search_dirs:
+
+def _resolve_font(font_name: str) -> str | None:
+    normalized = _normalize_font_name(font_name)
+    for directory in FONT_SEARCH_DIRS:
         if not directory.exists():
             continue
-        for candidate in candidates:
+        for candidate in (
+            f"{font_name}.ttf",
+            f"{font_name.lower()}.ttf",
+            f"{font_name}.ttc",
+            f"{font_name.lower()}.ttc",
+            f"{font_name}.otf",
+            f"{font_name.lower()}.otf",
+        ):
             path = directory / candidate
             if path.exists():
                 return str(path)
+
+    if sys.platform == "win32":
+        path = _resolve_font_windows_registry(normalized)
+        if path is not None:
+            return path
+
+    return _font_family_index().get(normalized)
+
+
+def _resolve_font_windows_registry(normalized_name: str) -> str | None:
+    import winreg
+
+    fonts_dir = Path("C:/Windows/Fonts")
+    try:
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
+        )
+    except OSError:
+        return None
+
+    try:
+        index = 0
+        while True:
+            try:
+                display_name, filename, _ = winreg.EnumValue(key, index)
+            except OSError:
+                break
+            index += 1
+            family = _normalize_font_name(display_name.split("(", 1)[0])
+            if family == normalized_name:
+                font_path = fonts_dir / filename
+                if font_path.exists():
+                    return str(font_path)
+    finally:
+        winreg.CloseKey(key)
     return None
 
 
-def _load_font(font_path: str | None, size: float) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+@lru_cache(maxsize=1)
+def _font_family_index() -> dict[str, str]:
+    index: dict[str, str] = {}
+    for directory in FONT_SEARCH_DIRS:
+        if not directory.exists():
+            continue
+        for path in sorted(directory.iterdir()):
+            if path.suffix.lower() not in FONT_EXTENSIONS:
+                continue
+            for family in _font_family_names(path):
+                index.setdefault(family, str(path))
+    return index
+
+
+@lru_cache(maxsize=512)
+def _font_family_names(font_path: Path) -> frozenset[str]:
+    try:
+        data = font_path.read_bytes()
+    except OSError:
+        return frozenset()
+
+    if data[:4] == b"ttcf":
+        names: set[str] = set()
+        num_fonts = struct.unpack_from(">I", data, 8)[0]
+        for index in range(num_fonts):
+            offset = struct.unpack_from(">I", data, 12 + index * 4)[0]
+            names.update(_sfnt_family_names(data, offset))
+        return frozenset(names)
+
+    return frozenset(_sfnt_family_names(data))
+
+
+def _sfnt_family_names(data: bytes, offset: int = 0) -> set[str]:
+    num_tables = struct.unpack_from(">H", data, offset + 4)[0]
+    name_table_offset = None
+    for index in range(num_tables):
+        record = offset + 12 + index * 16
+        if data[record : record + 4] != b"name":
+            continue
+        name_table_offset = offset + struct.unpack_from(">I", data, record + 8)[0]
+        break
+    if name_table_offset is None:
+        return set()
+    return _parse_name_table(data, name_table_offset)
+
+
+def _parse_name_table(data: bytes, table_offset: int) -> set[str]:
+    count = struct.unpack_from(">H", data, table_offset + 2)[0]
+    string_offset = struct.unpack_from(">H", data, table_offset + 4)[0]
+    names: set[str] = set()
+    record_base = table_offset + 6
+
+    for index in range(count):
+        record = record_base + index * 12
+        platform_id, _encoding_id, _language_id, name_id, length, name_offset = struct.unpack_from(
+            ">HHHHHH",
+            data,
+            record,
+        )
+        if name_id not in (1, 16):
+            continue
+        start = table_offset + string_offset + name_offset
+        decoded = _decode_name_record(data[start : start + length], platform_id)
+        if decoded:
+            names.add(_normalize_font_name(decoded))
+    return names
+
+
+def _decode_name_record(raw: bytes, platform_id: int) -> str | None:
+    if not raw:
+        return None
+    try:
+        if platform_id in (0, 3):
+            return raw.decode("utf-16-be")
+        if platform_id == 1:
+            return raw.decode("latin-1")
+    except UnicodeDecodeError:
+        return None
+    return None
+
+
+def _load_font(font_path: str, size: float) -> ImageFont.FreeTypeFont:
     pixel_size = max(round(size * RENDER_SCALE), 1)
-    if font_path:
-        try:
-            return ImageFont.truetype(font_path, size=pixel_size)
-        except OSError:
-            pass
-    return ImageFont.load_default()
+    try:
+        return ImageFont.truetype(font_path, size=pixel_size)
+    except OSError as exc:
+        raise ValueError(f"Unable to load font {font_path!r}: {exc}") from exc
 
 
 def _shape_mask(shape: str) -> np.ndarray:

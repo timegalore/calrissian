@@ -77,6 +77,7 @@ COMMON_STOP_WORDS = frozenset(
         "can",
         "co",
         "com",
+        "could",
         "do",
         "does",
         "had",
@@ -87,6 +88,7 @@ COMMON_STOP_WORDS = frozenset(
         "his",
         "how",
         "however",
+        "https",
         "if",
         "ing",
         "is",
@@ -98,12 +100,14 @@ COMMON_STOP_WORDS = frozenset(
         "no",
         "not",
         "or",
+        "our",
         "rd",
         "see",
         "shall",
         "she",
         "should",
         "so",
+        "some",
         "that",
         "them",
         "their",
@@ -124,6 +128,7 @@ COMMON_STOP_WORDS = frozenset(
         "will",
         "we",
         "you",
+        "your",
     }
 )
 NUMBER_WORDS = frozenset(

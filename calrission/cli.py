@@ -12,7 +12,7 @@ from calrission.pipeline import generate_wordcloud
 DEFAULT_FONT = "Tahoma"
 DEFAULT_MAXWORDS = 100
 DEFAULT_SHAPE = "cloud"
-DEFAULT_MAX_FONT_SIZE = 64
+DEFAULT_MAX_FONT_SIZE = 120
 DEFAULT_MIN_FONT_SIZE = 20
 DEFAULT_MAX_ANGLE = 45
 
