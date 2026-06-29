@@ -33,7 +33,7 @@ CLOUD_OUTLINE_PATH = Path(__file__).resolve().parent / "assets" / "cloud_outline
 CLOUD_OUTLINE_STROKE_THRESHOLD = 128
 CLOUD_OUTLINE_STROKE_DILATE = max(round(1 * RENDER_SCALE), 2)
 CLOUD_OUTLINE_MORPH_CLOSE = max(round(1 * RENDER_SCALE), 1)
-CLOUD_OUTLINE_ANTIALIAS_MAX = 140
+CLOUD_PLACEMENT_INSET = max(round(2 * RENDER_SCALE), 3)
 
 
 @dataclass(frozen=True)
@@ -219,7 +219,8 @@ def _load_font(font_path: str | None, size: float) -> ImageFont.FreeTypeFont | I
 
 def _shape_mask(shape: str) -> np.ndarray:
     if shape == "cloud":
-        return _cloud_shape_arrays()[0]
+        interior, _ = _cloud_shape_arrays()
+        return _erode_bool(interior, CLOUD_PLACEMENT_INSET)
 
     mask = Image.new("L", (CANVAS_WIDTH, CANVAS_HEIGHT), 0)
     draw = ImageDraw.Draw(mask)
@@ -236,7 +237,10 @@ def _draw_shape(draw: ImageDraw.ImageDraw, shape: str) -> None:
 
 def _draw_shape_border(image: Image.Image, shape: str) -> None:
     if shape == "cloud":
-        _draw_cloud_outline_image(image, _cloud_shape_arrays()[1])
+        _, outline = _cloud_shape_arrays()
+        pixels = np.array(image)
+        pixels[outline < CLOUD_OUTLINE_STROKE_THRESHOLD] = (0, 0, 0)
+        image.paste(Image.fromarray(pixels))
         return
 
     border = _outline_mask(_shape_mask(shape), SHAPE_BORDER_WIDTH)
@@ -313,24 +317,6 @@ def _enqueue_exterior(
         return
     exterior[y, x] = True
     queue.append((x, y))
-
-
-def _draw_cloud_outline_image(image: Image.Image, outline: np.ndarray) -> None:
-    alpha = _cloud_outline_alpha(outline)
-    if not alpha.any():
-        return
-
-    pixels = np.array(image, dtype=np.float32)
-    pixels *= 1.0 - alpha[:, :, np.newaxis]
-    image.paste(Image.fromarray(np.rint(pixels).astype(np.uint8)))
-
-
-def _cloud_outline_alpha(outline: np.ndarray) -> np.ndarray:
-    tone = outline.astype(np.float32)
-    alpha = np.zeros_like(tone)
-    stroke_region = tone < CLOUD_OUTLINE_ANTIALIAS_MAX
-    alpha[stroke_region] = (CLOUD_OUTLINE_ANTIALIAS_MAX - tone[stroke_region]) / CLOUD_OUTLINE_ANTIALIAS_MAX
-    return np.clip(alpha ** 1.5, 0.0, 1.0)
 
 
 def _dilate_bool(mask: np.ndarray, radius: int) -> np.ndarray:
