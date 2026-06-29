@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calrission"
+version = "0.1.0"
+description = "Generate a word cloud image from a PDF document"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "Pillow>=10.0.0",
+    "pymupdf>=1.24.0",
+    "numpy>=1.24.0",
+]
+
+[project.scripts]
+calrission = "calrission.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["calrission*"]
