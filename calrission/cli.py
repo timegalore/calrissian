@@ -9,7 +9,7 @@ from pathlib import Path
 from calrission.pipeline import generate_wordcloud
 
 
-DEFAULT_FONT = "Tahoma"
+DEFAULT_FONT = "Cooper Black"
 DEFAULT_MAXWORDS = 100
 DEFAULT_SHAPE = "cloud"
 DEFAULT_MAX_FONT_SIZE = 120

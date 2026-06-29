@@ -3,134 +3,48 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
+from importlib.resources import files
+
+from wordfreq import zipf_frequency
 
 YEAR_PATTERN = re.compile(r"^(19|20)\d{2}$")
 ORDINAL_PATTERN = re.compile(r"^\d+(st|nd|rd|th)$", re.IGNORECASE)
 WORD_PATTERN = re.compile(r"[A-Za-z']+")
+DIGIT_IN_WORD_PATTERN = re.compile(r"\d")
 
-ARTICLES = frozenset({"a", "an", "the"})
-PREPOSITIONS = frozenset(
+# Second halves of words split by end-of-line hyphens (e.g. organiza-\ntion).
+HYPHENATION_SUFFIX_FRAGMENTS = frozenset(
     {
-        "about",
-        "above",
-        "across",
-        "after",
-        "against",
-        "along",
-        "amid",
-        "among",
-        "around",
-        "at",
-        "before",
-        "behind",
-        "below",
-        "beneath",
-        "beside",
-        "besides",
-        "between",
-        "beyond",
-        "by",
-        "down",
-        "during",
-        "except",
-        "for",
-        "from",
-        "in",
-        "inside",
-        "into",
-        "near",
-        "of",
-        "off",
-        "on",
-        "onto",
-        "out",
-        "outside",
-        "over",
-        "past",
-        "since",
-        "through",
-        "throughout",
-        "to",
-        "toward",
-        "towards",
-        "under",
-        "underneath",
-        "until",
-        "up",
-        "upon",
-        "with",
-        "within",
-        "without",
+        "ally",
+        "ance",
+        "bility",
+        "cial",
+        "edly",
+        "ence",
+        "eous",
+        "ical",
+        "ically",
+        "ious",
+        "ities",
+        "ity",
+        "ment",
+        "ness",
+        "nality",
+        "sion",
+        "tion",
+        "tial",
+        "ually",
+        "uous",
+        "ward",
+        "wards",
     }
 )
-GRAMMATICAL_STOP_WORDS = ARTICLES | PREPOSITIONS
-COMMON_STOP_WORDS = frozenset(
-    {
-        "all",
-        "also",
-        "am",
-        "and",
-        "as",
-        "are",
-        "be",
-        "but",
-        "can",
-        "co",
-        "com",
-        "could",
-        "do",
-        "does",
-        "had",
-        "have",
-        "has",
-        "he",
-        "here",
-        "his",
-        "how",
-        "however",
-        "https",
-        "if",
-        "ing",
-        "is",
-        "it",
-        "its",
-        "me",
-        "multi",
-        "nd",
-        "no",
-        "not",
-        "or",
-        "our",
-        "rd",
-        "see",
-        "shall",
-        "she",
-        "should",
-        "so",
-        "some",
-        "that",
-        "them",
-        "their",
-        "these",
-        "they",
-        "this",
-        "those",
-        "there",
-        "then",
-        "th",
-        "thus",
-        "too",
-        "use",
-        "what",
-        "when",
-        "which",
-        "who",
-        "will",
-        "we",
-        "you",
-        "your",
-    }
-)
+
+# Short tokens use a lower bar; longer tokens must be extremely common to drop.
+SHORT_WORD_MAX_ZIPF = 5.5
+MAX_GENERAL_ENGLISH_ZIPF = 5.5
+
 NUMBER_WORDS = frozenset(
     {
         "zero",
@@ -217,7 +131,52 @@ MONTH_NAMES = frozenset(
         "dec",
     }
 )
-STOP_WORDS = GRAMMATICAL_STOP_WORDS | COMMON_STOP_WORDS | NUMBER_WORDS | TEXTUAL_ORDINALS | MONTH_NAMES
+TEMPORAL_ENUMERATIVE_WORDS = (
+    NUMBER_WORDS
+    | TEXTUAL_ORDINALS
+    | MONTH_NAMES
+    | frozenset(
+        {
+            "day",
+            "days",
+            "hour",
+            "hours",
+            "minute",
+            "minutes",
+            "month",
+            "months",
+            "week",
+            "weeks",
+            "year",
+            "years",
+        }
+    )
+)
+
+
+# Topical two-letter tokens that share a code with ISO 3166-1 alpha-2.
+COUNTRY_CODE_ALLOWLIST = frozenset({"ai"})
+
+
+@lru_cache(maxsize=1)
+def _country_codes() -> frozenset[str]:
+    path = files("calrission").joinpath("data/country_codes.txt")
+    return frozenset(
+        line.strip().lower()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    )
+
+
+@lru_cache(maxsize=1)
+def _function_words() -> frozenset[str]:
+    """Closed-class English words (articles, pronouns, auxiliaries, etc.)."""
+    path = files("calrission").joinpath("data/function_words.txt")
+    return frozenset(
+        line.strip().lower()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.startswith("#")
+    )
 
 
 def tokenize(text: str) -> list[tuple[str, bool]]:
@@ -263,15 +222,60 @@ def normalize_word(word: str) -> str:
     return word.lower().strip("'").replace("'", "")
 
 
-def is_single_letter_word(word: str) -> bool:
-    return len(normalize_word(word)) == 1
-
-
-def is_grammatical_stop_word(word: str) -> bool:
+def is_globally_common(word: str) -> bool:
+    """True for open-class words that are too frequent in general English."""
     normalized = normalize_word(word)
-    if is_single_letter_word(word):
+    if len(normalized) <= 2:
+        return False
+
+    zipf = zipf_frequency(normalized, "en")
+    if len(normalized) == 3:
+        return zipf >= SHORT_WORD_MAX_ZIPF
+    return zipf >= MAX_GENERAL_ENGLISH_ZIPF
+
+
+def is_function_word(word: str) -> bool:
+    """True for closed-class words that carry grammar rather than topic."""
+    normalized = normalize_word(word)
+    if len(normalized) <= 1:
         return True
-    return normalized in STOP_WORDS
+    return normalized in _function_words()
+
+
+def is_temporal_or_enumerative(word: str) -> bool:
+    """True for calendar, counting, and sequencing tokens."""
+    return normalize_word(word) in TEMPORAL_ENUMERATIVE_WORDS
+
+
+def is_extraction_artifact(word: str) -> bool:
+    """True for PDF/URL debris and other non-lexical tokens."""
+    normalized = normalize_word(word)
+    if DIGIT_IN_WORD_PATTERN.search(normalized):
+        return True
+    if normalized in HYPHENATION_SUFFIX_FRAGMENTS:
+        return True
+    return False
+
+
+def is_country_code(word: str) -> bool:
+    """True for two-letter ISO country/geopolitical codes (e.g. eu, de, uk)."""
+    normalized = normalize_word(word)
+    if len(normalized) != 2 or not normalized.isalpha():
+        return False
+    if normalized in COUNTRY_CODE_ALLOWLIST:
+        return False
+    return normalized in _country_codes()
+
+
+def lacks_contextual_meaning(word: str) -> bool:
+    """True when a token is unlikely to convey topical meaning in a word cloud."""
+    return (
+        is_function_word(word)
+        or is_temporal_or_enumerative(word)
+        or is_extraction_artifact(word)
+        or is_country_code(word)
+        or is_globally_common(word)
+    )
 
 
 def should_exclude(word: str, sentence_start: bool) -> bool:
@@ -281,6 +285,6 @@ def should_exclude(word: str, sentence_start: bool) -> bool:
         return True
     if is_proper_name(word, sentence_start):
         return True
-    if is_grammatical_stop_word(word):
+    if lacks_contextual_meaning(word):
         return True
     return False

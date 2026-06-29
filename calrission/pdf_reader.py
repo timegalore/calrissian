@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 
 import fitz
+
+# Join words broken across lines: "organiza-\ntion" -> "organization".
+LINE_BREAK_HYPHEN_PATTERN = re.compile(r"([A-Za-z]+)-\r?\n([a-z][A-Za-z']*)")
 
 
 @dataclass(frozen=True)
@@ -26,10 +30,20 @@ def extract_pdf_content(pdf_path: Path, palette_size: int = 12) -> PdfContent:
             colour_samples.extend(_sample_page_colours(page))
 
         text = "\n".join(text_parts)
+        text = dehyphenate_line_breaks(text)
         palette = _build_palette(colour_samples, palette_size)
         return PdfContent(text=text, palette=palette)
     finally:
         document.close()
+
+
+def dehyphenate_line_breaks(text: str) -> str:
+    """Rejoin words split by end-of-line hyphens in PDF text extraction."""
+    previous = None
+    while previous != text:
+        previous = text
+        text = LINE_BREAK_HYPHEN_PATTERN.sub(r"\1\2", text)
+    return text
 
 
 def _sample_page_colours(page: fitz.Page, step: int = 8) -> list[tuple[int, int, int]]:

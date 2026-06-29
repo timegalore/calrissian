@@ -698,6 +698,18 @@ def _bbox_overlaps(
     return region.size > 0 and region.any()
 
 
+def _mark_occupied(
+    occupied: np.ndarray,
+    bbox: tuple[int, int, int, int],
+) -> None:
+    x1, y1, x2, y2 = bbox
+    x1 = max(x1, 0)
+    y1 = max(y1, 0)
+    x2 = min(x2, CANVAS_WIDTH)
+    y2 = min(y2, CANVAS_HEIGHT)
+    occupied[y1:y2, x1:x2] = True
+
+
 def _paste_word(
     image: Image.Image,
     word_image: Image.Image,
@@ -713,13 +725,3 @@ def _paste_word(
     return (x + x1, y + y1, x + x2, y + y2)
 
 
-def _mark_occupied(
-    occupied: np.ndarray,
-    bbox: tuple[int, int, int, int],
-) -> None:
-    x1, y1, x2, y2 = bbox
-    x1 = max(x1, 0)
-    y1 = max(y1, 0)
-    x2 = min(x2, CANVAS_WIDTH)
-    y2 = min(y2, CANVAS_HEIGHT)
-    occupied[y1:y2, x1:x2] = True
