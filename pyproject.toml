@@ -20,3 +20,6 @@ calrission = "calrission.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["calrission*"]
+
+[tool.setuptools.package-data]
+calrission = ["assets/*"]
