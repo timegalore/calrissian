@@ -1,0 +1,32 @@
+---
+description: Update atomic requirements before committing code changes
+alwaysApply: true
+---
+
+# Requirements Document Before Commit
+
+Before creating any git commit in this repository, ensure the atomic requirements document is current.
+
+## Workflow
+
+1. Review staged and unstaged changes for anything that affects documented behavior (CLI flags, parameters, filtering, rendering, output format, etc.).
+2. If requirements are affected, edit `scripts/generate_atomic_requirements_rtf.py`:
+   - Update relevant `REQUIREMENTS` entries (status, statement, acceptance criteria, notes).
+   - Append new IDs when adding features; do not renumber existing IDs.
+   - Update `PHASE_SUMMARY` and `PROJECT_STATUS_NOTES` counts when the requirement set changes.
+3. Regenerate the RTF:
+
+```bash
+python scripts/generate_atomic_requirements_rtf.py
+```
+
+4. Stage both `scripts/generate_atomic_requirements_rtf.py` and `Calrission Atomic Requirements.rtf` in the same commit as the code changes.
+
+## Commit checklist
+
+- [ ] Changes reviewed for requirements impact
+- [ ] `scripts/generate_atomic_requirements_rtf.py` updated when needed
+- [ ] `Calrission Atomic Requirements.rtf` regenerated from the script
+- [ ] Requirements files included in the commit when they changed
+
+Do not commit code changes without updating the requirements document when those changes alter traceable application behavior.
