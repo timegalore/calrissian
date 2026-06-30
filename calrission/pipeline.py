@@ -18,10 +18,12 @@ def generate_wordcloud(
     max_font_size: float,
     min_font_size: float,
     max_angle: float,
+    minwords: int | None = None,
+    add_border: bool = False,
 ) -> Path:
     content = extract_pdf_content(pdf_path, palette_size=min(maxwords, 12))
     counts, display_forms = count_words(content.text)
-    words = top_words(counts, maxwords, display_forms)
+    words = top_words(counts, maxwords, display_forms, minwords=minwords)
 
     options = RenderOptions(
         shape=shape,
@@ -29,6 +31,7 @@ def generate_wordcloud(
         max_font_size=max_font_size,
         min_font_size=min_font_size,
         max_angle=max_angle,
+        add_border=add_border,
     )
     image = render_wordcloud(words, content.palette, options)
     return save_jpeg(image, output_path)

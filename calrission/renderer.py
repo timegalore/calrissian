@@ -69,6 +69,7 @@ class RenderOptions:
     max_font_size: float
     min_font_size: float
     max_angle: float
+    add_border: bool = False
 
 
 @dataclass
@@ -280,7 +281,8 @@ def render_wordcloud(
                 bbox=word_bbox,
             )
 
-    _draw_shape_border(image, options.shape)
+    if options.add_border:
+        _draw_shape_border(image, options.shape)
     if options.shape == "cloud":
         _draw_cloud_rim_shading(image, mask, centroid, placement_radii)
     return image

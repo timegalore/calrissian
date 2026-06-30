@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MASTER_REQUIREMENTS_RTF = "Calrission Atomic Requirements.rtf"
 OUT_PATH = ROOT / MASTER_REQUIREMENTS_RTF
-LAST_UPDATED = "2026-06-29"
+LAST_UPDATED = "2026-06-30"
 
 # Table column widths in twips (page content width = 9360 with 1" margins)
 LABEL_COL = 2880  # 2"
@@ -60,6 +60,28 @@ REQUIREMENTS = [
         "",
     ),
     (
+        "PAR-011",
+        "PAR-003",
+        "Parameters",
+        "Minimum word count",
+        "The application accepts an optional minwords parameter for the minimum number of words that must appear in the cloud.",
+        "When minwords is supplied, generation fails with a clear error if fewer distinct words remain after filtering; when omitted, no minimum is enforced beyond requiring at least one word.",
+        "Phase 1",
+        "Implemented",
+        "CLI flag: --minwords.",
+    ),
+    (
+        "PAR-012",
+        "PAR-003",
+        "Parameters",
+        "minwords versus maxwords validation",
+        "When both minwords and maxwords are supplied, minwords must be less than or equal to maxwords.",
+        "CLI rejects minwords > maxwords with a clear error; minwords equal to or less than maxwords is accepted.",
+        "Phase 1",
+        "Implemented",
+        "",
+    ),
+    (
         "PAR-005",
         "PAR-003",
         "Parameters",
@@ -86,8 +108,8 @@ REQUIREMENTS = [
         "PAR-003",
         "Parameters",
         "Maximum font size",
-        "The application accepts a max-font-size parameter for the largest font size in points, defaulting to 64 when omitted.",
-        "Most frequent word uses a font size no greater than max-font-size; default is 64 pt.",
+        "The application accepts a max-font-size parameter for the largest font size in points, defaulting to 120 when omitted.",
+        "Most frequent word uses a font size no greater than max-font-size; default is 120 pt.",
         "Phase 1",
         "Not started",
         "",
@@ -189,6 +211,17 @@ REQUIREMENTS = [
         "When unique word count > maxwords, output contains exactly maxwords words ranked by descending frequency; lowest-frequency words are dropped.",
         "Phase 2",
         "Not started",
+        "",
+    ),
+    (
+        "BAS-003",
+        "BAS-003",
+        "Basic function",
+        "Enforce minimum word count",
+        "When minwords is supplied, the application requires at least that many distinct words after filtering before rendering.",
+        "If filtered vocabulary size is less than minwords, processing stops with a clear error stating how many words remain; otherwise at least minwords words are included (subject to the maxwords cap).",
+        "Phase 2",
+        "Implemented",
         "",
     ),
     (
@@ -328,14 +361,14 @@ REQUIREMENTS = [
 PHASE_SUMMARY = [
     (
         "Phase 1 — Command-line interface",
-        "Python CLI named calrission; PDF path and rendering parameters (PAR-001–PAR-010).",
-        "10 requirements",
+        "Python CLI named calrission; PDF path and rendering parameters (PAR-001–PAR-012).",
+        "12 requirements",
         "Not started",
     ),
     (
         "Phase 2 — PDF processing",
-        "Extract and count words; exclude non-significant tokens; cap vocabulary at maxwords (FILT, BAS).",
-        "6 requirements",
+        "Extract and count words; exclude non-significant tokens; enforce minwords and cap vocabulary at maxwords (FILT, BAS).",
+        "7 requirements",
         "Not started",
     ),
     (
@@ -353,10 +386,9 @@ PHASE_SUMMARY = [
 ]
 
 PROJECT_STATUS_NOTES = (
-    "Greenfield project derived from Calrission requirements.docx. "
-    "28 atomic requirements: 28 Not started, 0 Implemented, 0 Verified. "
-    "No application code or automated tests yet. "
-    "Outstanding: implement CLI, PDF text extraction, word filtering, word-cloud layout engine, and JPEG export."
+    "Derived from Calrission requirements.docx. "
+    "30 atomic requirements; minwords support is documented in PAR-011, PAR-012, and BAS-003. "
+    "Edit REQUIREMENTS in scripts/generate_atomic_requirements_rtf.py and regenerate to refresh this file."
 )
 
 

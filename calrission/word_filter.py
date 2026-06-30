@@ -157,6 +157,9 @@ TEMPORAL_ENUMERATIVE_WORDS = (
 # Topical two-letter tokens that share a code with ISO 3166-1 alpha-2.
 COUNTRY_CODE_ALLOWLIST = frozenset({"ai"})
 
+# Boilerplate tokens that are not topical document content.
+EXCLUDED_TOKENS = frozenset({"scsc"})
+
 
 @lru_cache(maxsize=1)
 def _country_codes() -> frozenset[str]:
@@ -288,6 +291,11 @@ def is_country_code(word: str) -> bool:
     return normalized in _country_codes()
 
 
+def is_excluded_token(word: str) -> bool:
+    """True for known non-topical tokens (e.g. publication boilerplate)."""
+    return normalize_word(word) in EXCLUDED_TOKENS
+
+
 def lacks_contextual_meaning(word: str) -> bool:
     """True when a token is unlikely to convey topical meaning in a word cloud."""
     return (
@@ -305,6 +313,8 @@ def should_exclude(word: str, sentence_start: bool) -> bool:
     if is_ordinal(word):
         return True
     if is_proper_name(word, sentence_start):
+        return True
+    if is_excluded_token(word):
         return True
     if lacks_contextual_meaning(word):
         return True

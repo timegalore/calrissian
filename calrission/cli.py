@@ -35,6 +35,13 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Maximum number of words in the cloud (default: {DEFAULT_MAXWORDS})",
     )
     parser.add_argument(
+        "--minwords",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Minimum number of words that must appear in the cloud",
+    )
+    parser.add_argument(
         "--shape",
         choices=("rectangle", "cloud"),
         default=DEFAULT_SHAPE,
@@ -72,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Output JPEG path (default: <pdf_stem>_wordcloud.jpg in the current directory)",
     )
+    parser.add_argument(
+        "--addborder",
+        action="store_true",
+        help="Draw the profile outline around the cloud or rectangle shape",
+    )
     return parser
 
 
@@ -84,6 +96,11 @@ def validate_args(args: argparse.Namespace) -> None:
         raise SystemExit(f"Error: expected a PDF file, got: {args.path}")
     if args.maxwords < 1:
         raise SystemExit("Error: --maxwords must be at least 1")
+    if args.minwords is not None:
+        if args.minwords < 1:
+            raise SystemExit("Error: --minwords must be at least 1")
+        if args.minwords > args.maxwords:
+            raise SystemExit("Error: --minwords cannot exceed --maxwords")
     if args.min_font_size <= 0:
         raise SystemExit("Error: --min-font-size must be positive")
     if args.max_font_size <= 0:
@@ -106,11 +123,13 @@ def main(argv: list[str] | None = None) -> int:
             pdf_path=args.path,
             output_path=output_path,
             maxwords=args.maxwords,
+            minwords=args.minwords,
             shape=args.shape,
             font_name=args.font,
             max_font_size=args.max_font_size,
             min_font_size=args.min_font_size,
             max_angle=args.max_angle,
+            add_border=args.addborder,
         )
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)

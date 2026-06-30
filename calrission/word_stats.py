@@ -34,13 +34,24 @@ def top_words(
     counts: Counter[str],
     maxwords: int,
     display_forms: dict[str, str] | None = None,
+    minwords: int | None = None,
 ) -> list[tuple[str, int]]:
     if maxwords < 1:
         raise ValueError("maxwords must be at least 1")
+    if minwords is not None:
+        if minwords < 1:
+            raise ValueError("minwords must be at least 1")
+        if minwords > maxwords:
+            raise ValueError("minwords cannot exceed maxwords")
 
     ranked = counts.most_common(maxwords)
     if not ranked:
         raise ValueError("No words remain after filtering; cannot build a word cloud")
+    if minwords is not None and len(ranked) < minwords:
+        raise ValueError(
+            f"Only {len(ranked)} words remain after filtering; "
+            f"at least {minwords} are required"
+        )
 
     if display_forms is None:
         return ranked
