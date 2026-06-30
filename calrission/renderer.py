@@ -60,6 +60,7 @@ FONT_SEARCH_DIRS = (
     Path("/Library/Fonts"),
 )
 FONT_EXTENSIONS = frozenset({".ttf", ".ttc", ".otf"})
+SHAPE_CHOICES = ("rectangle", "cloud", "circle", "square", "pyramid")
 
 
 @dataclass(frozen=True)
@@ -498,11 +499,36 @@ def _shape_mask(shape: str) -> np.ndarray:
     return np.array(mask) >= 128
 
 
+def _content_bounds() -> tuple[int, int, int, int]:
+    return MARGIN, MARGIN, CANVAS_WIDTH - MARGIN, CANVAS_HEIGHT - MARGIN
+
+
+def _centered_square_bbox() -> tuple[int, int, int, int]:
+    left, top, right, bottom = _content_bounds()
+    side = min(right - left, bottom - top)
+    cx = (left + right) // 2
+    cy = (top + bottom) // 2
+    half = side // 2
+    return cx - half, cy - half, cx - half + side, cy - half + side
+
+
 def _draw_shape(draw: ImageDraw.ImageDraw, shape: str) -> None:
-    draw.rectangle(
-        (MARGIN, MARGIN, CANVAS_WIDTH - MARGIN, CANVAS_HEIGHT - MARGIN),
-        fill=255,
-    )
+    if shape == "rectangle":
+        draw.rectangle(_content_bounds(), fill=255)
+    elif shape == "square":
+        draw.rectangle(_centered_square_bbox(), fill=255)
+    elif shape == "circle":
+        draw.ellipse(_centered_square_bbox(), fill=255)
+    elif shape == "pyramid":
+        left, top, right, bottom = _content_bounds()
+        draw.polygon(
+            [(CANVAS_WIDTH // 2, top), (left, bottom), (right, bottom)],
+            fill=255,
+        )
+    elif shape == "cloud":
+        raise ValueError("Cloud shape is handled separately from vector shapes")
+    else:
+        raise ValueError(f"Unknown shape: {shape!r}")
 
 
 def _draw_shape_border(image: Image.Image, shape: str) -> None:

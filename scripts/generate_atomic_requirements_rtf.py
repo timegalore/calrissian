@@ -85,12 +85,23 @@ REQUIREMENTS = [
         "PAR-005",
         "PAR-003",
         "Parameters",
-        "Cloud shape selection",
-        'The application accepts a shape parameter with allowed values "rectangle" or "cloud", defaulting to "cloud" when omitted.',
-        'CLI accepts only rectangle and cloud; default is cloud; invalid values are rejected with a clear error.',
+        "Word cloud shape selection",
+        'The application accepts a shape parameter with allowed values "rectangle", "cloud", "circle", "square", or "pyramid", defaulting to "cloud" when omitted.',
+        'CLI accepts only rectangle, cloud, circle, square, and pyramid; default is cloud; invalid values are rejected with a clear error.',
         "Phase 1",
-        "Not started",
-        "",
+        "Implemented",
+        "Allowed values are defined in calrission.renderer.SHAPE_CHOICES.",
+    ),
+    (
+        "PAR-013",
+        "PAR-003",
+        "Parameters",
+        "Shape outline border",
+        "The application accepts an optional addborder flag that draws a profile outline around the selected word cloud shape.",
+        "When --addborder is supplied, the output image includes a visible border tracing the active shape; when omitted, no shape outline is drawn.",
+        "Phase 1",
+        "Implemented",
+        "CLI flag: --addborder.",
     ),
     (
         "PAR-006",
@@ -247,6 +258,50 @@ REQUIREMENTS = [
         "",
     ),
     (
+        "DIS-011",
+        "DIS-001",
+        "Display",
+        "Circle layout",
+        'When shape is "circle", words occupy a circular region in the image.',
+        "Generated image word bounding boxes collectively fill a circular silhouette inscribed within the canvas margins.",
+        "Phase 3",
+        "Implemented",
+        "",
+    ),
+    (
+        "DIS-012",
+        "DIS-001",
+        "Display",
+        "Square layout",
+        'When shape is "square", words occupy a square region in the image.',
+        "Generated image word bounding boxes collectively fill a centred square silhouette within the canvas margins.",
+        "Phase 3",
+        "Implemented",
+        "",
+    ),
+    (
+        "DIS-013",
+        "DIS-001",
+        "Display",
+        "Pyramid layout",
+        'When shape is "pyramid", words occupy a triangular pyramid silhouette in the image.',
+        "Generated image word bounding boxes collectively fill an upward-pointing triangle with its apex at the top centre and base along the bottom margin.",
+        "Phase 3",
+        "Implemented",
+        "",
+    ),
+    (
+        "DIS-014",
+        "DIS-001",
+        "Display",
+        "Shape outline border rendering",
+        "When addborder is enabled, the output image includes a visible outline tracing the active word cloud shape.",
+        "With --addborder, rectangle, square, circle, pyramid, and cloud outputs each show a shape-following border; without the flag, no outline is drawn.",
+        "Phase 3",
+        "Implemented",
+        "See PAR-013.",
+    ),
+    (
         "DIS-003",
         "DIS-003",
         "Display",
@@ -361,8 +416,8 @@ REQUIREMENTS = [
 PHASE_SUMMARY = [
     (
         "Phase 1 — Command-line interface",
-        "Python CLI named calrission; PDF path and rendering parameters (PAR-001–PAR-012).",
-        "12 requirements",
+        "Python CLI named calrission; PDF path and rendering parameters (PAR-001–PAR-013).",
+        "13 requirements",
         "Not started",
     ),
     (
@@ -373,8 +428,8 @@ PHASE_SUMMARY = [
     ),
     (
         "Phase 3 — Word cloud rendering",
-        "Shape, font scaling, colour, orientation, and placement rules (DIS-001–DIS-010).",
-        "10 requirements",
+        "Shape, font scaling, colour, orientation, and placement rules (DIS-001–DIS-014).",
+        "14 requirements",
         "Not started",
     ),
     (
@@ -387,7 +442,9 @@ PHASE_SUMMARY = [
 
 PROJECT_STATUS_NOTES = (
     "Derived from Calrission requirements.docx. "
-    "30 atomic requirements; minwords support is documented in PAR-011, PAR-012, and BAS-003. "
+    "35 atomic requirements; minwords support is documented in PAR-011, PAR-012, and BAS-003; "
+    "circle, square, and pyramid shapes are documented in PAR-005 and DIS-011–DIS-013; "
+    "addborder is documented in PAR-013 and DIS-014. "
     "Edit REQUIREMENTS in scripts/generate_atomic_requirements_rtf.py and regenerate to refresh this file."
 )
 

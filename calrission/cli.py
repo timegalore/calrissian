@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from calrission.pipeline import generate_wordcloud
+from calrission.renderer import SHAPE_CHOICES
 
 
 DEFAULT_FONT = "Cooper Black"
@@ -43,7 +44,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--shape",
-        choices=("rectangle", "cloud"),
+        choices=SHAPE_CHOICES,
         default=DEFAULT_SHAPE,
         help=f"Word cloud shape (default: {DEFAULT_SHAPE})",
     )
@@ -82,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--addborder",
         action="store_true",
-        help="Draw the profile outline around the cloud or rectangle shape",
+        help="Draw the profile outline around the word cloud shape",
     )
     return parser
 
